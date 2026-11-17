@@ -1,4 +1,5 @@
 // Tihik — Messenger budgeting bot + personal dashboard. Run: node server.js
+require("./lib/env"); // must run before anything reads process.env
 const http = require("node:http");
 const store = require("./lib/db");
 const { handleMessage, statusLine, dashMsg, withName } = require("./lib/bot");

@@ -1,5 +1,6 @@
 // Railway cron service entry point. Railway runs this on a schedule; it pings the web service,
 // which owns the database volume, and exits.
+require("./lib/env");
 const APP_URL = (process.env.APP_URL || "").replace(/\/$/, "");
 
 (async () => {
