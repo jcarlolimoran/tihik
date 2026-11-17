@@ -6,7 +6,7 @@ A budgeting bot on Facebook Messenger, with a personal web dashboard for each us
 
 ## What it does
 
-1. **First chat:** the bot greets the user and asks their name or nickname, which it uses in replies, reminders and the dashboard. Then it asks how much money they get a month ("kwarta kada bulan"): a salary for workers, an allowance for students. They can answer "25k", or "1,500 kada semana" / "200 kada adlaw" for a weekly or daily allowance (converted to a monthly amount), or type "skip" to only track spending, with no daily budget. Both questions can be skipped.
+1. **First chat:** the bot greets the user by their Messenger first name (from the Messenger profile API; if Meta doesn't share it, the bot asks for a name instead) and uses it in replies, reminders and the dashboard. "call me JC" changes it anytime. Then it asks how much money they get a month ("kwarta kada bulan"): a salary for workers, an allowance for students. They can answer "25k", or "1,500 kada semana" / "200 kada adlaw" for a weekly or daily allowance (converted to a monthly amount), or type "skip" to only track spending, with no daily budget. Both questions can be skipped.
 2. **Daily logging:** users chat their expenses ("lunch 150", "grocery 2,350 gahapon") or additional income ("sideline 2k", "bonus 5000"). After each entry the bot replies with what's left this month and how much they can still spend today.
 3. **Dashboard:** typing "dashboard" sends a private link with:
    - how much is left to spend today
