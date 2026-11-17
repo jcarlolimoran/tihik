@@ -1,0 +1,13 @@
+{
+  "name": "tihik",
+  "version": "1.0.0",
+  "description": "Messenger budgeting bot with a personal dashboard, powered by Claude",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node --no-warnings server.js",
+    "cron": "node cron.js",
+    "dev": "node --no-warnings --watch server.js"
+  },
+  "engines": { "node": ">=22.13" }
+}
