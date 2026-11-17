@@ -2,12 +2,12 @@
 
 # Tihik
 
-A budgeting bot on Facebook Messenger, with a personal web dashboard for each user. Claude reads Taglish messages like "jollibee 185 tapos pamasahe 40" and turns them into entries.
+A budgeting bot on Facebook Messenger, with a personal web dashboard for each user. The bot talks in Cebuano/Bisaya. Claude reads messages like "jollibee 185 dayon plete 40" and turns them into entries. It also understands Tagalog and English.
 
 ## What it does
 
-1. **First chat:** the bot greets the user and asks for their **monthly income**. Once they answer ("25k"), it shows their daily budget and their dashboard link.
-2. **Daily logging:** users chat their expenses ("lunch 150", "grocery 2,350 kahapon") or additional income ("sideline 2k", "bonus 5000"). After each entry the bot replies with what's left this month and how much they can still spend today.
+1. **First chat:** the bot greets the user and asks their name or nickname, which it uses in replies, reminders and the dashboard. Then it asks how much money they get a month ("kwarta kada bulan"): a salary for workers, an allowance for students. They can answer "25k", or "1,500 kada semana" / "200 kada adlaw" for a weekly or daily allowance (converted to a monthly amount), or type "skip" to only track spending, with no daily budget. Both questions can be skipped.
+2. **Daily logging:** users chat their expenses ("lunch 150", "grocery 2,350 gahapon") or additional income ("sideline 2k", "bonus 5000"). After each entry the bot replies with what's left this month and how much they can still spend today.
 3. **Dashboard:** typing "dashboard" sends a private link with:
    - how much is left to spend today
    - the month's progress
@@ -19,7 +19,7 @@ A budgeting bot on Facebook Messenger, with a personal web dashboard for each us
    - a short recap to anyone who has
    - on the 1st of the month, a recap of last month
 
-Other commands: `undo`, `help`, `new link` (makes a new dashboard link and turns off the old one), and "30k na sweldo ko" to change the monthly income.
+Other commands: `tips` (AI budgeting tips based on the user's own spending), `undo`, `help`, `new link` (makes a new dashboard link and turns off the old one), "30k na akong sweldo" or "6k na akong allowance" to change the monthly amount, and "tawga ko og JC" to change their name.
 
 **How "spendable today" is worked out:** whatever is left this month is split evenly over the days remaining, today included. Overspending today lowers tomorrow's budget, and spending less raises it.
 
@@ -46,7 +46,7 @@ npm run dev
 # chat without Facebook:
 curl -s localhost:3000/dev/chat -d '{"text":"hi"}'
 curl -s localhost:3000/dev/chat -d '{"text":"25k"}'
-curl -s localhost:3000/dev/chat -d '{"text":"jollibee 185 tapos pamasahe 40"}'
+curl -s localhost:3000/dev/chat -d '{"text":"jollibee 185 dayon plete 40"}'
 ```
 
 The reply after "25k" contains a `localhost:3000/d/...` link to your dashboard. `/dev/chat` is switched off when `NODE_ENV=production`.
@@ -72,6 +72,8 @@ Push this folder to a GitHub repo, then in Railway:
   | `DB_PATH` | `/data/tihik.db` |
   | `NODE_ENV` | `production` |
   | `TZ_NAME` | `Asia/Manila` |
+  | `AI_MESSAGES_PER_DAY` | optional, default `40` |
+  | `TIPS_PER_DAY` | optional, default `2` |
 
 ### 2. Cron service
 - In the same project: **New → GitHub Repo → the same repo** (creates a second service).
@@ -93,5 +95,6 @@ Push this folder to a GitHub repo, then in Railway:
 
 - **24-hour rule:** Messenger only lets a Page message someone within 24 hours of that person's last message. The cron skips users who have been quiet for more than 23.5 hours, so a user who stops chatting stops getting reminders. Each response shows how many users were skipped.
 - **Dashboard privacy:** anyone with the link can view that dashboard. Links are long and random, the page isn't indexed by search engines, and "new link" turns off a leaked one.
-- **Cost:** one small Claude Haiku call per logged message. `undo`, `dashboard`, `help`, `hi` and the onboarding step don't call Claude.
-- Text only for now; photos get a polite "text lang muna" reply.
+- **Cost:** one small Claude Haiku call per logged message, plus one per "tips" request. `undo`, `dashboard`, `help`, `hi`, `tips` before there are 3 entries, and onboarding don't call Claude.
+- **Usage limits (per user, per day):** `AI_MESSAGES_PER_DAY` (default 40) Claude-read messages; after that, simple messages like "lunch 150 ug plete 40" are still logged by a built-in keyword parser until midnight. `TIPS_PER_DAY` (default 2) AI tips. A tip that fails doesn't count.
+- Text only for now; photos get a polite "text lang sa" reply.

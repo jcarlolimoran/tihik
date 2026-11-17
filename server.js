@@ -1,11 +1,11 @@
 // Tihik — Messenger budgeting bot + personal dashboard. Run: node server.js
 const http = require("node:http");
 const store = require("./lib/db");
-const { handleMessage, statusLine, dashMsg } = require("./lib/bot");
+const { handleMessage, statusLine, dashMsg, withName } = require("./lib/bot");
 const messenger = require("./lib/messenger");
 const dashboard = require("./lib/dashboard");
 const { monthStats, peso } = require("./lib/stats");
-const { today, monthOf, shiftMonth, monthLabel } = require("./lib/dates");
+const { today, monthOf, shiftMonth, monthLabel, addDays } = require("./lib/dates");
 
 const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -23,7 +23,7 @@ async function onMessengerEvent(ev) {
   if (!psid || ev.message?.is_echo) return;
   const text = ev.message?.text ?? (ev.postback ? ev.postback.payload === "GET_STARTED" ? "get started" : ev.postback.title : null);
   if (!text) {
-    if (ev.message?.attachments) enqueue(psid, () => messenger.send(psid, { text: "Text lang muna ang nababasa ko 🙏 I-type ang gastos, hal. \"lunch 150\"" }));
+    if (ev.message?.attachments) enqueue(psid, () => messenger.send(psid, { text: "Text lang sa akong mabasa 🙏 I-type ang gasto, pananglitan \"lunch 150\"" }));
     return;
   }
   enqueue(psid, async () => {
@@ -32,7 +32,7 @@ async function onMessengerEvent(ev) {
       await messenger.sendAll(psid, await handleMessage(psid, text));
     } catch (e) {
       console.error(e);
-      await messenger.send(psid, { text: "Nagka-error sa side ko, pakisubukan ulit mamaya 🙏" });
+      await messenger.send(psid, { text: "Naay error sa akong side, palihug sulayi og balik unya 🙏" });
     }
   });
 }
@@ -42,7 +42,9 @@ async function onMessengerEvent(ev) {
 async function runDailyCron() {
   const day = today();
   const isFirst = day.endsWith("-01");
+  const isSunday = new Date(day + "T00:00:00Z").getUTCDay() === 0;
   const result = { sent: 0, skipped_outside_window: 0, already_sent: 0 };
+  store.pruneUsage(addDays(day, -7)); // AI usage counters are only needed for today
 
   for (const u of store.activeUsers()) {
     if (u.last_reminder_on === day) { result.already_sent++; continue; }
@@ -53,15 +55,20 @@ async function runDailyCron() {
     let text;
     if (isFirst) {
       const last = monthStats(u.psid, shiftMonth(monthOf(day), -1));
-      text = `🗓️ Bagong buwan! Noong ${monthLabel(last.month)}: nagastos ${peso(last.spent)} sa ${peso(last.total)}, ` +
-        `${last.remaining >= 0 ? `natira ${peso(last.remaining)} 🎉` : `lumampas ng ${peso(-last.remaining)}`}.\n\n` +
-        `Ngayong ${monthLabel(s.month)}, monthly income mo ay ${peso(s.monthlyIncome)}. Kung nagbago, i-chat lang hal. "30k na sweldo ko".\n\n` +
-        `Daily budget: ${peso(s.dailyAllowance)}`;
+      text = `🗓️ Bag-ong bulan${withName(u)}! Sa ${monthLabel(last.month)}: nagasto ka og ${peso(last.spent)}` +
+        (last.total > 0
+          ? ` sa ${peso(last.total)}, ${last.remaining >= 0 ? `nahabilin ${peso(last.remaining)} 🎉` : `nilapas og ${peso(-last.remaining)}`}.`
+          : ".") +
+        (s.monthlyIncome
+          ? `\n\nKarong ${monthLabel(s.month)}, ang imong kwarta kada bulan kay ${peso(s.monthlyIncome)}. Kung nausab ang imong sweldo o allowance, i-chat lang pananglitan "30k na akong sweldo" o "6k na akong allowance".\n\nDaily budget: ${peso(s.dailyAllowance)}`
+          : `\n\nGusto nimo og daily budget karong ${monthLabel(s.month)}? I-chat lang ang imong sweldo o allowance, pananglitan "25k".`);
     } else if (!store.loggedOn(u.psid, day)) {
-      text = `👋 Nag-log ka na ba ng gastos ngayong araw? I-chat lang hal. "lunch 150".\n\n${statusLine(s)}`;
+      text = `👋 ${u.name ? `${u.name}, naka-log` : "Naka-log"} na ba ka sa imong gasto karong adlawa? I-chat lang pananglitan "lunch 150".\n\n${statusLine(s)}`;
     } else {
-      text = `🌙 Recap ngayong araw: nagastos ka ng ${peso(s.spentToday)}.\n\n${statusLine(s)}`;
+      text = `🌙 Recap karong adlawa${withName(u)}: nagasto ka og ${peso(s.spentToday)}.\n\n${statusLine(s)}`;
     }
+    // Free nudge (no Claude call): remind people the AI tips exist once a week.
+    if (isSunday && !isFirst) text += `\n\n💡 I-chat ang "tips" para sa personal nga tambag base sa imong gasto.`;
     const ok = await messenger.send(u.psid, { text }, { type: "UPDATE" });
     if (ok) { store.markReminded(u.psid, day); result.sent++; }
   }
