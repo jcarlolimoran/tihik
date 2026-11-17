@@ -2,7 +2,7 @@
 
 # Tihik
 
-A budgeting bot on Facebook Messenger, with a personal web dashboard for each user. The bot talks in Cebuano/Bisaya. Claude reads messages like "jollibee 185 dayon plete 40" and turns them into entries. It also understands Tagalog and English.
+A budgeting bot on Facebook Messenger, with a personal web dashboard for each user. The bot talks in Bislish, mostly English mixed with Cebuano/Bisaya, and onboarding is mostly English. Claude reads messages like "jollibee 185 dayon plete 40" and turns them into entries. It also understands Tagalog and English.
 
 ## What it does
 
@@ -19,7 +19,7 @@ A budgeting bot on Facebook Messenger, with a personal web dashboard for each us
    - a short recap to anyone who has
    - on the 1st of the month, a recap of last month
 
-Other commands: `tips` (AI budgeting tips based on the user's own spending), `undo`, `help`, `new link` (makes a new dashboard link and turns off the old one), "30k na akong sweldo" or "6k na akong allowance" to change the monthly amount, and "tawga ko og JC" to change their name.
+Other commands: `tips` (AI budgeting tips based on the user's own spending), `undo`, `help`, `new link` (makes a new dashboard link and turns off the old one), "30k na akong sweldo" or "6k na akong allowance" to change the monthly amount, "call me JC" to change their name, and `restart` (asks for a "yes" first) to delete their entries, name and income and start onboarding again with a new dashboard link.
 
 **How "spendable today" is worked out:** whatever is left this month is split evenly over the days remaining, today included. Overspending today lowers tomorrow's budget, and spending less raises it.
 
