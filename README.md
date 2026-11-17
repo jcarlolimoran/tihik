@@ -2,11 +2,11 @@
 
 # Tihik
 
-A budgeting bot on Facebook Messenger, with a personal web dashboard for each user. The bot talks in Bislish, mostly English mixed with Cebuano/Bisaya, and onboarding is mostly English. Claude reads messages like "jollibee 185 dayon plete 40" and turns them into entries. It also understands Tagalog and English.
+A budgeting bot on Facebook Messenger and WhatsApp, with a personal web dashboard for each user. The bot talks in Bislish, mostly English mixed with Cebuano/Bisaya, and onboarding is mostly English. Claude reads messages like "jollibee 185 dayon plete 40" and turns them into entries. It also understands Tagalog and English.
 
 ## What it does
 
-1. **First chat:** the bot asks what to call the user (or, with `MESSENGER_NAME_LOOKUP=on`, greets them by their Messenger first name from the profile API; leave it off until the app has Meta's approved profile permission, since unapproved lookups may get the app's messaging restricted) and uses it in replies, reminders and the dashboard. "call me JC" changes it anytime. Then it asks how much money they get a month ("kwarta kada bulan"): a salary for workers, an allowance for students. They can answer "25k", or "1,500 kada semana" / "200 kada adlaw" for a weekly or daily allowance (converted to a monthly amount), or type "skip" to only track spending, with no daily budget. Both questions can be skipped.
+1. **First chat:** on WhatsApp the bot greets the user by their WhatsApp profile name (WhatsApp sends it with every message). On Messenger it asks what to call the user (or, with `MESSENGER_NAME_LOOKUP=on`, greets them by their Messenger first name from the profile API; leave it off until the app has Meta's approved profile permission, since unapproved lookups may get the app's messaging restricted) and uses it in replies, reminders and the dashboard. "call me JC" changes it anytime. Then it asks how much money they get a month ("kwarta kada bulan"): a salary for workers, an allowance for students. They can answer "25k", or "1,500 kada semana" / "200 kada adlaw" for a weekly or daily allowance (converted to a monthly amount), or type "skip" to only track spending, with no daily budget. Both questions can be skipped.
 2. **Daily logging:** users chat their expenses ("lunch 150", "grocery 2,350 gahapon") or additional income ("sideline 2k", "bonus 5000"). After each entry the bot replies with what's left this month and how much they can still spend today.
 3. **Dashboard:** typing "dashboard" sends a private link with:
    - how much is left to spend today
@@ -33,7 +33,9 @@ lib/ai.js        Claude call that turns a message into structured entries
 lib/stats.js     budget math
 lib/dashboard.js dashboard page (server-rendered HTML + SVG chart)
 lib/db.js        SQLite storage (Node's built-in node:sqlite, no npm packages)
-lib/messenger.js Send API + webhook signature check
+lib/messenger.js Messenger Send API + webhook signature check
+lib/whatsapp.js  WhatsApp Cloud API: send replies, parse webhooks
+lib/channels.js  routes each reply to Messenger or WhatsApp (WhatsApp users are stored as "wa:<number>")
 ```
 
 No dependencies. Needs Node 22.13 or newer.
@@ -91,6 +93,23 @@ Push this folder to a GitHub repo, then in Railway:
 2. Add the Tihik Page and generate the Page access token.
 3. Optional: add a **Get Started** button with payload `GET_STARTED`.
 4. In development mode only app admins and testers get replies. To open it to everyone, submit App Review for `pages_messaging`.
+
+### 4. WhatsApp (optional, can run alongside Messenger)
+1. In your Meta app (developers.facebook.com), **Add product → WhatsApp**. Meta gives you a free test number.
+2. Under **WhatsApp → API Setup**, copy the **Phone number ID**, and add your own phone under **To** as a test recipient (up to 5 while testing).
+3. Make a token that doesn't expire: Business settings → **System users** → add one (Admin) → assign your app and the WhatsApp account → **Generate token** with `whatsapp_business_messaging` and `whatsapp_business_management`. (The temporary token on API Setup expires in 24 hours.)
+4. Add to the web service's Railway variables:
+
+   | Variable | Value |
+   |---|---|
+   | `WHATSAPP_TOKEN` | the system-user token |
+   | `WHATSAPP_PHONE_NUMBER_ID` | from API Setup |
+   | `WHATSAPP_APP_SECRET` | only if WhatsApp is in a **different** Meta app than Messenger (App settings → Basic) |
+
+5. **WhatsApp → Configuration → Webhook:** callback URL `https://<your-domain>/webhook` (the same URL as Messenger), verify token = `VERIFY_TOKEN`, then subscribe to the **messages** field.
+6. Message the test number "hi" from your phone.
+
+To use your own number and reach everyone, add a real phone number in WhatsApp Manager and complete Business verification. Like Messenger, WhatsApp only allows free-form messages within 24 hours of the user's last message, so the 8 PM reminder only reaches people who chatted that day.
 
 ## Limits worth knowing
 

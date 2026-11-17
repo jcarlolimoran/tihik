@@ -1,9 +1,11 @@
-// Tihik — Messenger budgeting bot + personal dashboard. Run: node server.js
+// Tihik — Messenger + WhatsApp budgeting bot + personal dashboard. Run: node server.js
 require("./lib/env"); // must run before anything reads process.env
 const http = require("node:http");
 const store = require("./lib/db");
 const { handleMessage, statusLine, dashMsg, withName } = require("./lib/bot");
 const messenger = require("./lib/messenger");
+const whatsapp = require("./lib/whatsapp");
+const channels = require("./lib/channels");
 const dashboard = require("./lib/dashboard");
 const { monthStats, peso } = require("./lib/stats");
 const { today, monthOf, shiftMonth, monthLabel, addDays } = require("./lib/dates");
@@ -38,8 +40,36 @@ async function onMessengerEvent(ev) {
   });
 }
 
+// WhatsApp can deliver the same message twice; remember recent message ids and skip repeats.
+const seenWa = new Set();
+function firstTime(id) {
+  if (!id || seenWa.has(id)) return !id;
+  seenWa.add(id);
+  if (seenWa.size > 5000) seenWa.delete(seenWa.values().next().value);
+  return true;
+}
+
+function onWhatsAppMessage({ waId, name, text, messageId, unsupported }) {
+  if (!waId || !firstTime(messageId)) return;
+  const userId = channels.waUserId(waId);
+  if (unsupported) {
+    enqueue(userId, () => whatsapp.send(waId, { text: "Text lang sa akong mabasa 🙏 Type your expense, like \"lunch 150\"" }));
+    return;
+  }
+  enqueue(userId, async () => {
+    whatsapp.typing(messageId);
+    try {
+      await channels.sendAll(userId, await handleMessage(userId, text, { name }));
+    } catch (e) {
+      console.error(e);
+      await whatsapp.send(waId, { text: "Naay error sa akong side, please try again later 🙏" });
+    }
+  });
+}
+
 // Called once a day by the Railway cron service (see cron.js).
-// Messenger only allows messages within 24h of the user's last message, so users outside that window are skipped.
+// Messenger and WhatsApp only allow free-form messages within 24h of the user's last message,
+// so users outside that window are skipped.
 async function runDailyCron() {
   const day = today();
   const isFirst = day.endsWith("-01");
@@ -70,7 +100,7 @@ async function runDailyCron() {
     }
     // Free nudge (no Claude call): remind people the AI tips exist once a week.
     if (isSunday && !isFirst) text += `\n\n💡 Type "tips" for personal tips based sa imong gasto.`;
-    const ok = await messenger.send(u.psid, { text }, { type: "UPDATE" });
+    const ok = await channels.send(u.psid, { text }, { type: "UPDATE" });
     if (ok) { store.markReminded(u.psid, day); result.sent++; }
   }
   return result;
@@ -95,13 +125,14 @@ const server = http.createServer(async (req, res) => {
       return res.writeHead(ok ? 200 : 403).end(ok ? url.searchParams.get("hub.challenge") : "Forbidden");
     }
 
-    // Incoming Messenger events
+    // Incoming Messenger and WhatsApp events (same URL; Meta tells them apart with body.object)
     if (req.method === "POST" && url.pathname === "/webhook") {
       const raw = await readBody(req);
       if (!messenger.validSignature(raw, req.headers["x-hub-signature-256"])) return res.writeHead(403).end();
       res.writeHead(200).end("EVENT_RECEIVED"); // reply to Meta immediately, do the work after
       const body = JSON.parse(raw);
       if (body.object === "page") for (const e of body.entry || []) for (const ev of e.messaging || []) onMessengerEvent(ev);
+      if (body.object === "whatsapp_business_account") for (const m of whatsapp.parseWebhook(body)) onWhatsAppMessage(m);
       return;
     }
 
